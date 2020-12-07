@@ -246,7 +246,48 @@ xc(R_yO2_idx, 1) = 1;
 
 
 %% QUESTION 4
+xb_idx = full_matrices.idb(node_b , 1 );
+xa_idx = full_matrices.idb(node_a , 1 );
 
+Fk = 1 * beams( 6, end-1);
+
+mod5 = zeros(length(vett_f), 1);
+fas5 = zeros(length(vett_f), 1);
+mod6 = zeros(length(vett_f), 1);
+fas6 = zeros(length(vett_f), 1);
+mod7 = zeros(length(vett_f), 1);
+fas7 = zeros(length(vett_f), 1);
+
+QF = zeros(dof,1);
+QF( xb_idx ,1)=1;
+
+for k = 1:length(vett_f)
+      ome = vett_f(k)*2*pi;
+      A = (-ome^2*MFF+i*ome*CFF+KFF);
+      xf = A\QF;
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
+      
+      xa_val = xf( xa_idx );
+      ya_val = xf( ya_idx );
+      yc_val = xf( yc_idx );
+      
+      mod5(k) = Fk*abs(xa_val);
+      fas5(k) = angle(xa_val);
+      mod6(k) = Fk*abs(ya_val);
+      fas6(k) = angle(ya_val);
+      mod7(k) = Fk*abs(yc_val);
+      fas7(k) = angle(yc_val);
+end
+
+ figure
+ subplot 211;plot(vett_f,mod5);grid;  xlabel('freq [Hz]');  title('FRF yA (input FA)');
+ subplot 212;plot(vett_f,fas5*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,mod6);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
+ subplot 212;plot(vett_f,fas6*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,mod7);grid; xlabel('freq [Hz]');title('FRF yAdd (input FB)');
+ subplot 212;plot(vett_f,fas7*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
 
 %% QUESTION 5
 % history of yA under Ma moving
@@ -279,3 +320,99 @@ plot(vett_T, ya_history);
 
 
 %% QUESTION 6
+target_1 = max( mod3 );
+target_2 = max( mod4 );
+
+% change something 
+% check conditions again on wi 
+% condition on the total mass 
+
+%% create the .inp file
+
+%% run the program
+%estract the matrices
+
+%% perfrom the computation required 
+%load matrices
+full_matrices = load('crane_ZD_new_mkr.mat');
+
+dof = sum (sum( nodes(:, 1:3) == [0, 0, 0]) );
+doc = (3*length(nodes) - dof);
+MFF = full_matrices.M( 1:dof, 1:dof);
+CFF = full_matrices.R( 1:dof, 1:dof);
+KFF = full_matrices.K( 1:dof, 1:dof);
+
+MFC = full_matrices.M( 1:dof, dof+1:end);
+CFC = full_matrices.R( 1:dof, dof+1:end);
+KFC = full_matrices.K( 1:dof, dof+1:end);
+
+MCF = full_matrices.M( dof+1:end, 1:dof);
+CCF = full_matrices.R( dof+1:end, 1:dof);
+KCF = full_matrices.K( dof+1:end, 1:dof);
+
+MCC = full_matrices.M( dof+1:end, dof+1:end);
+CCC = full_matrices.R( dof+1:end, dof+1:end);
+KCC = full_matrices.K( dof+1:end, dof+1:end);
+% modes and frequencies
+% [modes, eigenvalues] = eig(MFF\KFF);
+% freq = sqrt(diag(eigenvalues))/2/pi;
+% full_freq = load('crane_ZD_new_fre.mat');
+% disp('Frequenze : ');
+% disp( full_freq.freq (full_freq.freq <= OMEGA_val) );
+
+mod8 = zeros(length(vett_f), 1);
+fas8 = zeros(length(vett_f), 1);
+mod9 = zeros(length(vett_f), 1);
+fas9 = zeros(length(vett_f), 1);
+
+QF = zeros(dof,1);
+QF( ya_idx ,1)=1;
+
+for k = 1:length(vett_f)
+      ome = vett_f(k)*2*pi;
+      A = (-ome^2*MFF+i*ome*CFF+KFF);
+      xf = A\QF;
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
+      
+      %ya_val = xf( ya_idx );
+      %xb_val = xf( xb_idx );
+      R_yO2_val = QC( R_yO2_idx );
+      
+      %mod1(k) = abs(ya_val);
+      %fas1(k) = angle(ya_val);
+      %mod2(k) = abs(xb_val);
+      %fas2(k) = angle(xb_val);
+      mod8(k) = abs(R_yO2_val);
+      fas8(k) = angle(R_yO2_val);
+end
+
+QF = zeros(dof,1);
+xc = zeros(doc,1);
+xc(R_yO2_idx, 1) = 1;
+
+  for k = 1:length(vett_f)
+      ome = vett_f(k)*2*pi;
+      A = (-ome^2*MFF+i*ome*CFF+KFF);
+      QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
+      xf=A\(QF+QFC);
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
+      
+      R_yO2_val = QC( R_yO2_idx );
+            
+      mod9(k) = abs(R_yO2_val);
+      fas9(k) = angle(R_yO2_val);
+ end
+ 
+ figure
+ subplot 211;plot(vett_f,mod8);grid;  xlabel('freq [Hz]');  title('FRF yA (input FA)');
+ subplot 212;plot(vett_f,fas8*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,mod9);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
+ subplot 212;plot(vett_f,fas9*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ 
+ if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
+     disp('Request fullfilled');
+ else
+     disp('Try again');
+ end
