@@ -10,7 +10,9 @@ L1 = 30; L2 = 39; L3 = 15; L4 = 24;
 H1 = 12; H2 = 15; H3 = 10;
 MA = 800; 
 A1 = 0.25; A2 = 0.25; A3 = 0.15; 
+Amps = [A1, A2, A3];
 phi_1 = 0; phi_2 = pi; phi_3 = pi;
+phi = [phi_1, phi_2, phi_3];
 T = 1.2;
 alpha = 0.1;
 beta = 2.0e-4;
@@ -97,7 +99,7 @@ while (idx <= n_b)
    % if not ok add node in the middle or divide in third..
    if(wi <= Cs*OMEGA_val)
        % half the length 4 times the freq wi... square law
-       disp(idx);
+       %disp(idx);
        split = ceil( sqrt(Cs*OMEGA_val/wi) );
        % I add nodes in the middle based on the number of pieces I had to
        % divide it ( 1 node less than beams)
@@ -133,6 +135,147 @@ end
 % once all conditions are checked 
 %% create the .inp file
 
+%% run the program
+%estract the matrices
 
 %% perfrom the computation required 
+%load matrices
+full_matrices = load('crane_ZD_mkr.mat');
 
+dof = sum (sum( nodes(:, 1:3) == [0, 0, 0]) );
+doc = (3*length(nodes) - dof);
+MFF = full_matrices.M( 1:dof, 1:dof);
+CFF = full_matrices.R( 1:dof, 1:dof);
+KFF = full_matrices.K( 1:dof, 1:dof);
+
+MFC = full_matrices.M( 1:dof, dof+1:end);
+CFC = full_matrices.R( 1:dof, dof+1:end);
+KFC = full_matrices.K( 1:dof, dof+1:end);
+
+MCF = full_matrices.M( dof+1:end, 1:dof);
+CCF = full_matrices.R( dof+1:end, 1:dof);
+KCF = full_matrices.K( dof+1:end, 1:dof);
+
+MCC = full_matrices.M( dof+1:end, dof+1:end);
+CCC = full_matrices.R( dof+1:end, dof+1:end);
+KCC = full_matrices.K( dof+1:end, dof+1:end);
+% modes and frequencies
+% [modes, eigenvalues] = eig(MFF\KFF);
+% freq = sqrt(diag(eigenvalues))/2/pi;
+full_freq = load('crane_ZD_fre.mat');
+disp('Frequenze : ');
+disp( full_freq.freq (full_freq.freq <= OMEGA_val) );
+
+%% QUESTION 3
+
+%3.a F yA -> ya
+%3.b F yA -> xb
+%3.c F yA -> RyO2
+%3.d F yc -> RyO2
+% to resort the index of yA in the big matrices
+% Ya = full_matrices.idb(node_a , 2 ) % row is the node number, column is
+% the x(1), y(2) or theta(3)
+ya_idx = full_matrices.idb(node_a , 2 );
+xb_idx = full_matrices.idb(node_b , 1 );
+yc_idx = full_matrices.idb(node_c , 2 );
+R_yO2_idx = full_matrices.idb(node_o2 , 2 ) - dof ;
+
+start_f = 0;
+df = 0.001;
+i=sqrt(-1);
+vett_f=start_f:df:OMEGA_val;
+mod1 = zeros(length(vett_f), 1);
+fas1 = zeros(length(vett_f), 1);
+mod2 = zeros(length(vett_f), 1);
+fas2 = zeros(length(vett_f), 1);
+mod3 = zeros(length(vett_f), 1);
+fas3 = zeros(length(vett_f), 1);
+mod4 = zeros(length(vett_f), 1);
+fas4 = zeros(length(vett_f), 1);
+
+QF = zeros(dof,1);
+QF( ya_idx ,1)=1;
+
+for k = 1:length(vett_f)
+      ome = vett_f(k)*2*pi;
+      A = (-ome^2*MFF+i*ome*CFF+KFF);
+      xf = A\QF;
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
+      
+      ya_val = xf( ya_idx );
+      xb_val = xf( xb_idx );
+      R_yO2_val = QC( R_yO2_idx );
+      
+      mod1(k) = abs(ya_val);
+      fas1(k) = angle(ya_val);
+      mod2(k) = abs(xb_val);
+      fas2(k) = angle(xb_val);
+      mod3(k) = abs(R_yO2_val);
+      fas3(k) = angle(R_yO2_val);
+end
+
+QF = zeros(dof,1);
+xc = zeros(doc,1);
+xc(R_yO2_idx, 1) = 1;
+
+  for k = 1:length(vett_f)
+      ome = vett_f(k)*2*pi;
+      A = (-ome^2*MFF+i*ome*CFF+KFF);
+      QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
+      xf=A\(QF+QFC);
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
+      
+      R_yO2_val = QC( R_yO2_idx );
+            
+      mod4(k) = abs(R_yO2_val);
+      fas4(k) = angle(R_yO2_val);
+ end
+ 
+ figure
+ subplot 211;plot(vett_f,mod1);grid;  xlabel('freq [Hz]');  title('FRF yA (input FA)');
+ subplot 212;plot(vett_f,fas1*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,mod2);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
+ subplot 212;plot(vett_f,fas2*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,mod3);grid; xlabel('freq [Hz]');title('FRF yAdd (input FB)');
+ subplot 212;plot(vett_f,fas3*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,mod4);grid;xlabel('freq [Hz]');title('FRF yBdd (input FB)');
+ subplot 212;plot(vett_f,fas4*180/pi); grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+
+
+%% QUESTION 4
+
+
+%% QUESTION 5
+% history of yA under Ma moving
+vett_T = 0:0.01:T;
+ma_movement = zeros(size(vett_T));
+FA = zeros(size(vett_T));
+ya_history = zeros(size(vett_T));
+for k = 1:3
+      ome = k*2*pi/T;
+      QQF = zeros(dof,1);
+      QF( ya_idx ,1) = MA*Amps(k)*ome^2;   %1 minus due to accelration (-ome^2) another for change of direction for acceleration 
+      
+      A = (-ome^2*MFF+i*ome*CFF+KFF);
+      xf = A\QF;
+     
+      ya_val = xf( ya_idx );
+      
+      ma_movement = ma_movement + Amps(k)* cos( ome*vett_T + phi(k) );
+      FA = FA + Amps(k)* cos( ome*vett_T + phi(k) )*MA*(ome^2);
+      ya_history = ya_history + abs(ya_val)* cos( ome*vett_T + phi(k) + angle(ya_val) );
+end
+
+figure; 
+%plot(vett_T, [ma_movement; A1*cos( 2*pi/T *vett_T + phi_1); A2*cos( 2*2*pi/T *vett_T + phi_2); A3*cos( 3*2*pi/T *vett_T + phi_3)] ); title('FRF yAdd (input FB)');
+plot(vett_T, ma_movement ); title('FRF yAdd (input FB)');
+figure;
+plot(vett_T, FA ); title('FA');
+figure;
+plot(vett_T, ya_history);
+
+
+%% QUESTION 6
