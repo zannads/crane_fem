@@ -1,5 +1,6 @@
 clc;
 close all;
+clear;
 % create the fem system with nodes on the intersections
 %% data
 m1 = 312; EA1 = 8.2e9; EJ1 = 1.40e9;        red = [m1, EA1, EJ1];
@@ -76,7 +77,7 @@ OMEGA_val = 10; % [Hz]
 
 % compute Lk, wi
 idx = 1;
-[n_b, ~] = size(beams);
+n_b = size(beams, 1);
 beams = [beams, zeros(n_b, 2)];
 while (idx <= n_b)
    % Lk
@@ -134,13 +135,20 @@ end
 %sum( beams(:, 7) < Cs*OMEGA_val ) %should be 0
 % once all conditions are checked 
 %% create the .inp file
+name = 'crane_ZD';
+inp = '.inp';
+matrices = '_mkr.mat';
+frequenze = '_fre.mat';
+
+write_inp(nodes, beams, damping, masses, [], strcat(name, inp) );
 
 %% run the program
 %estract the matrices
-
+dmb_fem2
+%pause;
 %% perfrom the computation required 
 %load matrices
-full_matrices = load('crane_ZD_mkr.mat');
+full_matrices = load( strcat(name, matrices) );
 
 dof = sum (sum( nodes(:, 1:3) == [0, 0, 0]) );
 doc = (3*length(nodes) - dof);
@@ -162,7 +170,7 @@ KCC = full_matrices.K( dof+1:end, dof+1:end);
 % modes and frequencies
 % [modes, eigenvalues] = eig(MFF\KFF);
 % freq = sqrt(diag(eigenvalues))/2/pi;
-full_freq = load('crane_ZD_fre.mat');
+full_freq = load( strcat(name, frequenze) );
 disp('Frequenze : ');
 disp( full_freq.freq (full_freq.freq <= OMEGA_val) );
 
@@ -324,17 +332,20 @@ target_1 = max( mod3 );
 target_2 = max( mod4 );
 
 % change something 
+
 % check conditions again on wi 
 % condition on the total mass 
 
 %% create the .inp file
-
+new_name = 'crane_ZD_NEW';
+write_inp(nodes, beams, damping, masses, [], strcat(new_name, inp) );
 %% run the program
 %estract the matrices
-
+dmb_fem2
+pause;
 %% perfrom the computation required 
 %load matrices
-full_matrices = load('crane_ZD_new_mkr.mat');
+full_matrices = load( strcat(new_name, matrices) );
 
 dof = sum (sum( nodes(:, 1:3) == [0, 0, 0]) );
 doc = (3*length(nodes) - dof);
@@ -356,7 +367,7 @@ KCC = full_matrices.K( dof+1:end, dof+1:end);
 % modes and frequencies
 % [modes, eigenvalues] = eig(MFF\KFF);
 % freq = sqrt(diag(eigenvalues))/2/pi;
-% full_freq = load('crane_ZD_new_fre.mat');
+% full_freq = load( strcat(new_name, frequenze) );
 % disp('Frequenze : ');
 % disp( full_freq.freq (full_freq.freq <= OMEGA_val) );
 
@@ -415,4 +426,53 @@ xc(R_yO2_idx, 1) = 1;
      disp('Request fullfilled');
  else
      disp('Try again');
+ end
+ 
+ %% FUNCTIONS
+ function write_inp( nodes, beams, damping, masses, springs, title)
+ fileID = fopen(title,'w');
+%clear evertything
+
+ 
+ if( ~ isempty(nodes) )
+     fprintf(fileID, '*NODES\n');
+     for idx = 1:size(nodes, 1)
+         fprintf(fileID, '%d \t', idx);
+         fprintf(fileID,'%d %d %d \t %.1f %.1f \n', nodes(idx, :));
+     end
+      fprintf(fileID, '*ENDNODES\n');
+ end
+
+  if( ~ isempty(beams) )
+           fprintf(fileID, '*BEAMS\n');
+     for idx = 1:size(beams, 1)
+         fprintf(fileID, '%d \t', idx);
+         fprintf(fileID,'%d %d \t %d %.1e %.1E \n', beams(idx, 1:(end-2)) );
+     end
+           fprintf(fileID, '*ENDBEAMS\n');
+  end
+ 
+ if( ~ isempty(damping) )
+           fprintf(fileID, '*DAMPING\n%.1f %.1e \n', damping);
+ end
+ 
+ if( ~ isempty(masses) )
+           fprintf(fileID, '*MASSES\n');
+     for idx = 1:size(masses, 1)
+         fprintf(fileID, '%d \t', idx);
+         fprintf(fileID,'%d %d %d\n', masses );
+     end
+           fprintf(fileID, '*ENDMASSES\n');
+ end
+ 
+ if( ~ isempty(springs) )
+           fprintf(fileID, '*SPRINGS\n');
+     for idx = 1:size(springs, 1)
+         fprintf(fileID, '%d \t', idx);
+         fprintf(fileID,'%d %d %d\n', springs );
+     end
+           fprintf(fileID, '*ENDSPRINGS\n');
+ end
+ 
+  fclose(fileID);
  end
