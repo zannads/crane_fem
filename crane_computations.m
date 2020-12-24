@@ -75,63 +75,7 @@ masses = [ node_c, MC, JC];
 Cs = 2;
 OMEGA_val = 10; % [Hz]
 
-% compute Lk, wi
-idx = 1;
-n_b = size(beams, 1);
-beams = [beams, zeros(n_b, 2)];
-while (idx <= n_b)
-   % Lk
-   x1 = nodes( beams(idx, 1), end-1);
-   x2 = nodes( beams(idx, 2), end-1);
-   y1 = nodes( beams(idx, 1), end);
-   y2 = nodes( beams(idx, 2), end);
-   L_x = x2 - x1;
-   L_y = y2 - y1;
-   Lk = sqrt( L_x^2 + L_y^2 );
- 
-   % wi 
-   EJi = beams(idx, 5);
-   Mi = beams(idx, 3);
-   wi = ((pi/ Lk)^2 )*sqrt( EJi / Mi);
-   
-   beams(idx, end-1) = Lk;
-   beams(idx, end) = wi;
-   
-   % if not ok add node in the middle or divide in third..
-   if(wi <= Cs*OMEGA_val)
-       % half the length 4 times the freq wi... square law
-       %disp(idx);
-       split = ceil( sqrt(Cs*OMEGA_val/wi) );
-       % I add nodes in the middle based on the number of pieces I had to
-       % divide it ( 1 node less than beams)
-       new_nodes = zeros( split -1 , 5);
-       new_beams = zeros( split -1, 7);
-       % now I have to fill the data of the new nodes
-       for jdx = 1:split-1
-           new_nodes( jdx, :) = [free_node, x1 + L_x*jdx/split, y1 + L_y*jdx/split];
-       end
-       [new_nodes_position, ~] = size(nodes);
-       nodes = [nodes;
-                new_nodes];
-       %   and then change the beams
-       
-       %old beams needs new final node 
-       old_final_node = beams(idx, 2);
-       beams(idx, 2) = new_nodes_position +1 ;
-       for jdx = 1:split-1
-           new_beams(jdx, :) = [ new_nodes_position+ jdx, new_nodes_position+jdx+1 , beams(idx, 3:5), zeros(1, 2)];
-       end
-       new_beams(end, 2) = old_final_node;
-       beams = [beams; 
-                new_beams];
-       %redo the calculations for this beam
-       idx = idx-1;
-       %clear new_beams new_nodes new_nodes_position old_final_node;
-   end
-   [n_b, ~] = size(beams);
-   idx = idx +1;
-end
-
+[nodes, beams] = validate_FEM(nodes, beams, Cs*OMEGA_val);
 %sum( beams(:, 7) < Cs*OMEGA_val ) %should be 0
 % once all conditions are checked 
 %% create the .inp file
@@ -257,7 +201,13 @@ xc(R_yO2_idx, 1) = 1;
 xb_idx = full_matrices.idb(node_b , 1 );
 xa_idx = full_matrices.idb(node_a , 1 );
 
-Fk = 1 * beams( 6, end-1);
+Fk_L = distributed_force(0, 1, beams( 6 , end-1));
+lambda6_G = [ 0, 1, 0;
+             -1, 0, 0;
+              0, 0, 1];
+          lambda6_G = [lambda6_G, zeros(3);
+                        zeros(3), lambda6_G];
+Fk_G = lambda6_G*Fk_L;
 
 mod5 = zeros(length(vett_f), 1);
 fas5 = zeros(length(vett_f), 1);
@@ -267,7 +217,14 @@ mod7 = zeros(length(vett_f), 1);
 fas7 = zeros(length(vett_f), 1);
 
 QF = zeros(dof,1);
-QF( xb_idx ,1)=1;
+%NODE 5
+QF( full_matrices.idb(node_b , 1 ) ,:) = Fk_G(1, :);
+QF( full_matrices.idb(node_b , 2 ) ,:) = Fk_G(2, :);
+QF( full_matrices.idb(node_b , 3 ) ,:) = Fk_G(3, :);
+%NODE 6
+QF( full_matrices.idb(node_d , 1 ) ,:) = Fk_G(4, :);
+QF( full_matrices.idb(node_d , 2 ) ,:) = Fk_G(5, :);
+QF( full_matrices.idb(node_d , 3 ) ,:) = Fk_G(6, :);
 
 for k = 1:length(vett_f)
       ome = vett_f(k)*2*pi;
@@ -279,11 +236,11 @@ for k = 1:length(vett_f)
       ya_val = xf( ya_idx );
       yc_val = xf( yc_idx );
       
-      mod5(k) = Fk*abs(xa_val);
+      mod5(k) = abs(xa_val);
       fas5(k) = angle(xa_val);
-      mod6(k) = Fk*abs(ya_val);
+      mod6(k) = abs(ya_val);
       fas6(k) = angle(ya_val);
-      mod7(k) = Fk*abs(yc_val);
+      mod7(k) = abs(yc_val);
       fas7(k) = angle(yc_val);
 end
 
@@ -328,13 +285,26 @@ plot(vett_T, ya_history);
 
 
 %% QUESTION 6
-target_1 = max( mod3 );
-target_2 = max( mod4 );
+old_tm = sum( beams( :, 3).*beams(:, end-1) ) +MC;
 
 % change something 
+nodes = [nodes;
+         free_node, (L3+ (L1-L3)/2), H3;
+         clamped_node, (L3+ (L1-L3)/2), 0];
+beams(3,2) = size(nodes, 1)-1;
+beams = [beams(:, 1:5);
+         size(nodes, 1)-1, 5, green;
+         size(nodes, 1)-1, size(nodes,1), green];
 
 % check conditions again on wi 
+[nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
 % condition on the total mass 
+new_tm = sum( beams( :, 3).*beams(:, end-1) )+MC;
+ if( new_tm <= 1.05*old_tm )
+     disp('First condition fullfilled');
+ else
+     disp('Try again');
+ end
 
 %% create the .inp file
 new_name = 'crane_ZD_NEW';
@@ -342,7 +312,7 @@ write_inp(nodes, beams, damping, masses, [], strcat(new_name, inp) );
 %% run the program
 %estract the matrices
 dmb_fem2
-pause;
+%pause;
 %% perfrom the computation required 
 %load matrices
 full_matrices = load( strcat(new_name, matrices) );
@@ -420,8 +390,9 @@ xc(R_yO2_idx, 1) = 1;
  figure
  subplot 211;plot(vett_f,mod9);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
  subplot 212;plot(vett_f,fas9*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
- figure
  
+ target_1 = max( mod3 );
+target_2 = max( mod4 );
  if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
      disp('Request fullfilled');
  else
@@ -429,6 +400,68 @@ xc(R_yO2_idx, 1) = 1;
  end
  
  %% FUNCTIONS
+ 
+ function [nodes, beams] = validate_FEM(nodes,  beams, limit)
+ free_node = [0, 0, 0];
+ % compute Lk, wi
+ idx = 1;
+ n_b = size(beams, 1);
+ beams = [beams, zeros(n_b, 2)];
+ while (idx <= n_b)
+     % Lk
+     x1 = nodes( beams(idx, 1), end-1);
+     x2 = nodes( beams(idx, 2), end-1);
+     y1 = nodes( beams(idx, 1), end);
+     y2 = nodes( beams(idx, 2), end);
+     L_x = x2 - x1;
+     L_y = y2 - y1;
+     Lk = sqrt( L_x^2 + L_y^2 );
+     
+     % wi
+     EJi = beams(idx, 5);
+     Mi = beams(idx, 3);
+     wi = ((pi/ Lk)^2 )*sqrt( EJi / Mi);
+     
+     beams(idx, end-1) = Lk;
+     beams(idx, end) = wi;
+     
+     % if not ok add node in the middle or divide in third..
+     if(wi <= limit)
+         % half the length 4 times the freq wi... square law
+         %disp(idx);
+         split = ceil( sqrt(limit/wi) );
+         % I add nodes in the middle based on the number of pieces I had to
+         % divide it ( 1 node less than beams)
+         new_nodes = zeros( split -1 , 5);
+         new_beams = zeros( split -1, 7);
+         % now I have to fill the data of the new nodes
+         for jdx = 1:split-1
+             new_nodes( jdx, :) = [free_node, x1 + L_x*jdx/split, y1 + L_y*jdx/split];
+         end
+         [new_nodes_position, ~] = size(nodes);
+         nodes = [nodes;
+             new_nodes];
+         %   and then change the beams
+         
+         %old beams needs new final node
+         old_final_node = beams(idx, 2);
+         beams(idx, 2) = new_nodes_position +1 ;
+         for jdx = 1:split-1
+             new_beams(jdx, :) = [ new_nodes_position+ jdx, new_nodes_position+jdx+1 , beams(idx, 3:5), zeros(1, 2)];
+         end
+         new_beams(end, 2) = old_final_node;
+         beams = [beams;
+             new_beams];
+         %redo the calculations for this beam
+         idx = idx-1;
+         %clear new_beams new_nodes new_nodes_position old_final_node;
+     end
+     [n_b, ~] = size(beams);
+     idx = idx +1;
+ end
+
+ end
+ 
  function write_inp( nodes, beams, damping, masses, springs, title)
  fileID = fopen(title,'w');
 %clear evertything
@@ -475,4 +508,19 @@ xc(R_yO2_idx, 1) = 1;
  end
  
   fclose(fileID);
+ end
+ 
+ function Fk_L = distributed_force(px, py, Lk)
+    syms e;
+    fu = [(1-e/Lk); 0;0; 
+          (e/Lk); 0;0];
+    fv = [0; 
+          2*(e/Lk)^3 - 3*(e/Lk)^2 + 1;
+          Lk*( (e/Lk)^3 -2*(e/Lk)^2 + e/Lk);
+          0;
+          -2*(e/Lk)^3 + 3*(e/Lk)^2;
+          Lk*( (e/Lk)^3 -(e/Lk)^2);];
+    %only for constant px or py
+    
+    Fk_L = double(int(fu*px, 0, Lk) + int(fv*py, 0, Lk));
  end
