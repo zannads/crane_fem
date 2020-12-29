@@ -167,15 +167,18 @@ for k = 1:length(vett_f)
 end
 
 QF = zeros(dof,1);
-xc = zeros(doc,1);
-xc(R_yO2_idx, 1) = 1;
+QF( yc_idx ,1)=1;
+% xc = zeros(doc,1);
+% xc(R_yO2_idx, 1) = 1;
 
   for k = 1:length(vett_f)
       ome = vett_f(k)*2*pi;
       A = (-ome^2*MFF+i*ome*CFF+KFF);
-      QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
-      xf=A\(QF+QFC);
-      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
+      % QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
+      % xf=A\(QF+QFC);
+      % QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
+      xf = A\QF;
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
       
       R_yO2_val = QC( R_yO2_idx );
             
@@ -184,19 +187,21 @@ xc(R_yO2_idx, 1) = 1;
  end
  
  figure
- subplot 211;plot(vett_f,mod1);grid;  xlabel('freq [Hz]');  title('FRF yA (input FA)');
+ subplot 211;plot(vett_f,mod1);grid;  xlabel('freq [Hz]');  title('FRF y_A ( input Fy_A )');
  subplot 212;plot(vett_f,fas1*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
  figure
- subplot 211;plot(vett_f,mod2);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
+ subplot 211;plot(vett_f,mod2);grid; xlabel('freq [Hz]');title('FRF x_B ( input Fy_A )');
  subplot 212;plot(vett_f,fas2*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
  figure
- subplot 211;plot(vett_f,mod3);grid; xlabel('freq [Hz]');title('FRF yAdd (input FB)');
+ subplot 211;plot(vett_f,mod3);grid; xlabel('freq [Hz]');title('FRF V_{O2} ( input Fy_A )');
  subplot 212;plot(vett_f,fas3*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
  figure
- subplot 211;plot(vett_f,mod4);grid;xlabel('freq [Hz]');title('FRF yBdd (input FB)');
+ subplot 211;plot(vett_f,mod4);grid;xlabel('freq [Hz]');title('FRF V_{O2} ( input Fy_C )');
  subplot 212;plot(vett_f,fas4*180/pi); grid; xlabel('freq [Hz]'); ylabel('degree [°]');
 
-
+ 
+ target_1 = max( mod3 );
+ target_2 = max( mod4 );
 %% QUESTION 4
 xb_idx = full_matrices.idb(node_b , 1 );
 xa_idx = full_matrices.idb(node_a , 1 );
@@ -245,13 +250,13 @@ for k = 1:length(vett_f)
 end
 
  figure
- subplot 211;plot(vett_f,mod5);grid;  xlabel('freq [Hz]');  title('FRF yA (input FA)');
+ subplot 211;plot(vett_f,mod5);grid;  xlabel('freq [Hz]');  title('FRF x_A ( input distribuited load )');
  subplot 212;plot(vett_f,fas5*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
  figure
- subplot 211;plot(vett_f,mod6);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
+ subplot 211;plot(vett_f,mod6);grid; xlabel('freq [Hz]');title('FRF y_A ( input distribuited load )');
  subplot 212;plot(vett_f,fas6*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
  figure
- subplot 211;plot(vett_f,mod7);grid; xlabel('freq [Hz]');title('FRF yAdd (input FB)');
+ subplot 211;plot(vett_f,mod7);grid; xlabel('freq [Hz]');title('FRF y_C ( input distribuited load )');
  subplot 212;plot(vett_f,fas7*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
 
 %% QUESTION 5
@@ -260,9 +265,9 @@ vett_T = 0:0.01:T;
 ma_movement = zeros(size(vett_T));
 FA = zeros(size(vett_T));
 ya_history = zeros(size(vett_T));
-for k = 1:3
+for k = 1:length(Amps)
       ome = k*2*pi/T;
-      QQF = zeros(dof,1);
+      QF = zeros(dof,1);
       QF( ya_idx ,1) = MA*Amps(k)*ome^2;   %1 minus due to accelration (-ome^2) another for change of direction for acceleration 
       
       A = (-ome^2*MFF+i*ome*CFF+KFF);
@@ -271,30 +276,23 @@ for k = 1:3
       ya_val = xf( ya_idx );
       
       ma_movement = ma_movement + Amps(k)* cos( ome*vett_T + phi(k) );
-      FA = FA + Amps(k)* cos( ome*vett_T + phi(k) )*MA*(ome^2);
+      FA = FA + Amps(k)* cos( ome*vett_T + phi(k) )*MA*(ome^2); %with plus is inertia, with minus is acceleration -> remove Ma
       ya_history = ya_history + abs(ya_val)* cos( ome*vett_T + phi(k) + angle(ya_val) );
 end
 
 figure; 
 %plot(vett_T, [ma_movement; A1*cos( 2*pi/T *vett_T + phi_1); A2*cos( 2*2*pi/T *vett_T + phi_2); A3*cos( 3*2*pi/T *vett_T + phi_3)] ); title('FRF yAdd (input FB)');
-plot(vett_T, ma_movement ); title('FRF yAdd (input FB)');
+plot(vett_T, ma_movement ); title('y_{MA}');xlabel('m');ylabel('time [s]');
 figure;
-plot(vett_T, FA ); title('FA');
+plot(vett_T, FA ); title('Inertia of MA');xlabel('N');ylabel('time [s]');
 figure;
-plot(vett_T, ya_history);
+plot(vett_T, ya_history); title('y_A');xlabel('m');ylabel('time [s]');
 
 
 %% QUESTION 6
 old_tm = sum( beams( :, 3).*beams(:, end-1) ) +MC;
 
-% change something 
-nodes = [nodes;
-         free_node, (L3+ (L1-L3)/2), H3;
-         clamped_node, (L3+ (L1-L3)/2), 0];
-beams(3,2) = size(nodes, 1)-1;
-beams = [beams(:, 1:5);
-         size(nodes, 1)-1, 5, green;
-         size(nodes, 1)-1, size(nodes,1), green];
+%beams(4,:) = [2, 6, beams(4, 3:end) ];
 
 % check conditions again on wi 
 [nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
@@ -368,15 +366,18 @@ for k = 1:length(vett_f)
 end
 
 QF = zeros(dof,1);
-xc = zeros(doc,1);
-xc(R_yO2_idx, 1) = 1;
+QF( yc_idx ,1)=1;
+% xc = zeros(doc,1);
+% xc(R_yO2_idx, 1) = 1;
 
   for k = 1:length(vett_f)
       ome = vett_f(k)*2*pi;
       A = (-ome^2*MFF+i*ome*CFF+KFF);
-      QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
-      xf=A\(QF+QFC);
-      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
+      % QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
+      % xf=A\(QF+QFC);
+      % QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
+      xf = A\QF;
+      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
       
       R_yO2_val = QC( R_yO2_idx );
             
@@ -384,15 +385,16 @@ xc(R_yO2_idx, 1) = 1;
       fas9(k) = angle(R_yO2_val);
  end
  
- figure
- subplot 211;plot(vett_f,mod8);grid;  xlabel('freq [Hz]');  title('FRF yA (input FA)');
- subplot 212;plot(vett_f,fas8*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
- figure
- subplot 211;plot(vett_f,mod9);grid; xlabel('freq [Hz]');title('FRF yB (input FA)');
- subplot 212;plot(vett_f,fas9*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
  
- target_1 = max( mod3 );
-target_2 = max( mod4 );
+ figure
+ subplot 211;plot(vett_f,[mod8, mod3]);grid;  
+ xlabel('freq [Hz]');  title('Difference between FRF V_{O2} ( input Fy_A )'); legend('new', 'old');
+ subplot 212;plot(vett_f,[fas8, fas3]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+ figure
+ subplot 211;plot(vett_f,[mod9, mod4]);grid; 
+ xlabel('freq [Hz]');title('Difference between FRF V_{O2} ( input Fy_C )');legend('new', 'old');
+ subplot 212;plot(vett_f,[fas9, fas4]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+
  if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
      disp('Request fullfilled');
  else
