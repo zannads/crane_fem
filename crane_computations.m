@@ -73,12 +73,13 @@ damping = [alpha, beta];
 % masses - node nr. where placed mass [kg]   J [Kgm^2]
 masses = [ node_c, MC, JC];
 
-%% check Cs * Ome << wi = (pi/Lk)^2 * sqrt( EJ/M )
+% check Cs * Ome << wi = (pi/Lk)^2 * sqrt( EJ/M )
 Cs = 2;
 freq_val = 10;
 OMEGA_val = 2*pi*freq_val; % [Hz]
 
 [nodes, beams] = validate_FEM(nodes, beams, Cs*OMEGA_val);
+old_tm = sum( beams( :, 3).*beams(:, end-1) ) +MC;
 %sum( beams(:, 7) < Cs*OMEGA_val ) %should be 0
 % once all conditions are checked 
 %% create the .inp file
@@ -213,17 +214,18 @@ QF( yc_idx ,1)=1;
 %% QUESTION 4
 xb_idx = full_matrices.idb(node_b , 1 );
 xa_idx = full_matrices.idb(node_a , 1 );
-
-Fk_L = distributed_force(0, 1, beams( 6 , end-1));
 lambda6_G = [ 0, 1, 0;
              -1, 0, 0;
               0, 0, 1];
-          lambda6_G = [lambda6_G, zeros(3);
-                        zeros(3), lambda6_G];
+lambda6_G = [lambda6_G, zeros(3);
+            zeros(3), lambda6_G];
+lambda14_G = lambda6_G;
+
+Fk_L = distributed_force(0, 1, beams( 6 , end-1));
 Fk_G = lambda6_G'*Fk_L;
 
-Fk_L = distributed_force(0, 1, beams( 19 , end-1));
-Fk_G2 = lambda6_G'*Fk_L;
+Fk_L2 = distributed_force(0, 1, beams( 19 , end-1));
+Fk_G2 = lambda14_G'*Fk_L2;
 
 mod5 = zeros(length(vett_f), 1);
 fas5 = zeros(length(vett_f), 1);
@@ -235,10 +237,8 @@ fas7 = zeros(length(vett_f), 1);
 QF = zeros(dof,1);
 %NODE 5
 QF( full_matrices.idb(node_b , 1 ) :  full_matrices.idb(node_b , 3 ),:) = Fk_G(1:3, :);
-
 %NODE 14
 QF( full_matrices.idb(14 , 1 ) :  full_matrices.idb(14 , 3 ),:) = Fk_G(4:6, :) + Fk_G2(1:3,:);
-
 %NODE 6
 QF( full_matrices.idb(node_d , 1 ) :  full_matrices.idb(node_d , 3 ),:) = Fk_G2(4:6, :);
 
@@ -279,6 +279,9 @@ vett_T = 0:0.01:T;
 ma_movement = zeros(size(vett_T));
 FA = zeros(size(vett_T));
 ya_history = zeros(size(vett_T));
+ya_mods = zeros(size(Amps));
+ya_phases = zeros(size(Amps));
+
 for k = 1:length(Amps)
       ome = k*2*pi/T;
       QF = zeros(dof,1);
@@ -289,9 +292,12 @@ for k = 1:length(Amps)
      
       ya_val = xf( ya_idx );
       
+      ya_mods(k) = abs(ya_val);
+      ya_phases(k) =  phi(k) + angle(ya_val);
+      
       ma_movement = ma_movement + Amps(k)* cos( ome*vett_T + phi(k) );
       FA = FA + Amps(k)* cos( ome*vett_T + phi(k) )*MA*(ome^2); %with plus is inertia, with minus is acceleration -> remove Ma
-      ya_history = ya_history + abs(ya_val)* cos( ome*vett_T + phi(k) + angle(ya_val) );
+      ya_history = ya_history + ya_mods(k)* cos( ome*vett_T + ya_phases(k) );
 end
 
 figure; 
@@ -304,118 +310,222 @@ print( 'Inertia of MA', '-djpeg');
 figure;
 plot(vett_T, ya_history); title('y_A');ylabel('m');xlabel('time [s]');
 print( 'y_A', '-djpeg');
+
+freq_MA = [1/T, 2/T, 3/T ];
+figure
+subplot 211;bar(freq_MA,Amps);grid; title('Spectrum of MA'); 
+xlabel('frequency [Hz]'); ylabel('Amplitude [m]'); 
+ylim([0, 0.3]);
+subplot 212;bar(freq_MA,phi);grid; 
+xlabel('frequency [Hz]'); ylabel('phase [rad]');
+
+% fftout=fft(ma_movement);
+% N=length(ma_movement);
+% df=1/T;
+% fmax=(N/2-1)*df;
+% vett_freq=0:df:fmax;
+% modf(1)=1/N*abs(fftout(1));
+% modf(2:N/2)=2/N*abs(fftout(2:N/2));
+% fasf(1:N/2)=angle(fftout(1:N/2));
+% figure
+% subplot 211;bar(vett_freq,modf);grid; title('Spectrum of MA'); xlabel('frequency [Hz]'); ylabel('Amplitude [m]');
+% subplot 212;bar(vett_freq,fasf);grid; xlabel('frequency [Hz]'); ylabel('phase [rad]');
+
+print( 'Spectrum of yMA', '-djpeg');
+
+figure
+subplot 211;bar(freq_MA,ya_mods);grid; title('Spectrum of displacement yA'); 
+xlabel('frequency [Hz]'); ylabel('Amplitude [m]'); 
+ylim([0, max(ya_mods)*1.05]);
+subplot 212;bar(freq_MA,ya_phases);grid; 
+xlabel('frequency [Hz]'); ylabel('phase [rad]');
+
+% fftout=fft(ya_history);
+% N=length(ya_history);
+% df=1/T;
+% fmax=(N/2-1)*df;
+% vett_freq=0:df:fmax;
+% modf(1)=1/N*abs(fftout(1));
+% modf(2:N/2)=2/N*abs(fftout(2:N/2));
+% fasf(1:N/2)=angle(fftout(1:N/2));
+% figure
+% subplot 211;bar(vett_freq,modf);grid; title('Spectrum of displacement yA'); xlabel('frequency [Hz]'); ylabel('Amplitude [m]');
+% subplot 212;bar(vett_freq,fasf);grid; xlabel('frequency [Hz]'); ylabel('phase [rad]');
+print( 'Spectrum of displacement yA', '-djpeg');
+
+
 %% QUESTION 6
-old_tm = sum( beams( :, 3).*beams(:, end-1) ) +MC;
 
-%beams(4,:) = [2, 6, beams(4, 3:end) ];
+% nodes - boundary conditions codes: x,y,theta | position: x       y   
+nodes = [
+        hinge_node, L3, 0; 
+        free_node, L3, H3;
+        free_node, L3, H2+H3;
+        hinge_node, L1, 0;
+        free_node, L1, H3;                      %5
+        free_node, L1, H2+H3;
+        free_node, L1+L2-L4, H2+H3;
+        free_node, L1+L2, H2+H3;
+        free_node, L1, H1+H2+H3;
+        free_node, 0, H2+H3;                    %10
+         free_node, L3, H1+H2+H3-5;               
+%         free_node, 0, H1+H2+H3;
+%         free_node, L1+L2-L4, H1+H2+H3;
+%         free_node, L1+L2, H1+H2+H3;
+        ];
 
-% check conditions again on wi 
+% beams - i-th node nr.  j-th node nr.      mass [kg/m]   EA [N]  EJ [Nm^2]
+% then I'll add two columns, length Lk [m] and frequency [wi]
+beams = [
+        1, 2, red;
+        2, 3, red;
+        2, 5, green;
+%        3, 5, green;
+                  2, 6, green;
+        4, 5, red;
+        5, 6, red;
+%         10, 3, red;
+%         3, 6, red;
+%         6, 7, red;
+%         7, 8, red;
+                10, 3, blue;
+                3, 6, blue;
+                6, 7, blue;
+                7, 8, blue ;
+%         10, 9, blue;
+ %        3, 9, blue;
+ %                10, 9, red;
+ %                3, 9, red;
+                  10,11, blue;
+                  3,11, red;
+                  11, 6, blue;
+  %                10, 2, blue;
+      %   6, 9, blue;
+                   6, 9, red;
+         7, 9, blue;
+         8, 9, blue;
+          9, 11, blue;
+%                 10, 12, blue;
+%                 12, 11, blue;
+%                 7, 13, blue;
+%         8, 14, blue;
+%         13, 14, blue;
+%         9, 13, blue;
+        ];
+
+% alpha and beta values to define the damping matrix
+damping = [alpha, beta];
+
+% masses - node nr. where placed mass [kg]   J [Kgm^2]
+%masses = [ node_c, MC, JC];
+masses = [ 3, MC , JC;
+           %3, 0.045*old_tm, 0
+           ];
+
+[nodes, beams] = validate_FEM(nodes, beams, Cs*OMEGA_val);
+
+beams = [beams;
+   %  10, 2, blue, 0,0;
+    %14, 17, blue, 0,0;
+   % 7, 25, blue, 0,0;
+    %19, 24, blue,0,0;
+%      20, 21, blue, 0,0;
+%      21, 22, blue, 0,0;
+%      22, 23, blue, 0,0;
+%      23, 26, blue, 0,0;
+    ];
+
+% check conditions again on wi
 [nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
-% condition on the total mass 
+% condition on the total mass
 new_tm = sum( beams( :, 3).*beams(:, end-1) )+MC;
- if( new_tm <= 1.05*old_tm )
-     disp('First condition fullfilled');
- else
-     disp('Try again');
- end
-
-%% create the .inp file
-new_name = 'crane_ZD_NEW';
-write_inp(nodes, beams, damping, masses, [], strcat(new_name, inp) );
-%% run the program
-%estract the matrices
-dmb_fem2
-pause;
-%% perfrom the computation required 
-%load matrices
-full_matrices = load( strcat(new_name, matrices) );
-
-dof = sum (sum( nodes(:, 1:3) == [0, 0, 0]) );
-doc = (3*length(nodes) - dof);
-MFF = full_matrices.M( 1:dof, 1:dof);
-CFF = full_matrices.R( 1:dof, 1:dof);
-KFF = full_matrices.K( 1:dof, 1:dof);
-
-MFC = full_matrices.M( 1:dof, dof+1:end);
-CFC = full_matrices.R( 1:dof, dof+1:end);
-KFC = full_matrices.K( 1:dof, dof+1:end);
-
-MCF = full_matrices.M( dof+1:end, 1:dof);
-CCF = full_matrices.R( dof+1:end, 1:dof);
-KCF = full_matrices.K( dof+1:end, 1:dof);
-
-MCC = full_matrices.M( dof+1:end, dof+1:end);
-CCC = full_matrices.R( dof+1:end, dof+1:end);
-KCC = full_matrices.K( dof+1:end, dof+1:end);
-% modes and frequencies
-% [modes, eigenvalues] = eig(MFF\KFF);
-% freq = sqrt(diag(eigenvalues))/2/pi;
-% full_freq = load( strcat(new_name, frequenze) );
-% disp('Frequenze : ');
-% disp( full_freq.freq (full_freq.freq <= OMEGA_val) );
-
-mod8 = zeros(length(vett_f), 1);
-fas8 = zeros(length(vett_f), 1);
-mod9 = zeros(length(vett_f), 1);
-fas9 = zeros(length(vett_f), 1);
-
-QF = zeros(dof,1);
-QF( ya_idx ,1)=1;
-
-for k = 1:length(vett_f)
-      ome = vett_f(k)*2*pi;
-      A = (-ome^2*MFF+i*ome*CFF+KFF);
-      xf = A\QF;
-      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
-      
-      %ya_val = xf( ya_idx );
-      %xb_val = xf( xb_idx );
-      R_yO2_val = QC( R_yO2_idx );
-      
-      %mod1(k) = abs(ya_val);
-      %fas1(k) = angle(ya_val);
-      %mod2(k) = abs(xb_val);
-      %fas2(k) = angle(xb_val);
-      mod8(k) = abs(R_yO2_val);
-      fas8(k) = angle(R_yO2_val);
+if( new_tm <= 1.05*old_tm )
+    disp('First condition fullfilled');
+    
+    % create the .inp file
+    cd(folder);
+    new_name = 'crane_ZD_NEW';
+    write_inp(nodes, beams, damping, masses, [], strcat(new_name, inp) );
+    
+    %estract the matrices
+    dmb_fem2
+    pause;
+    % perfrom the computation required
+    %load matrices
+    full_matrices = load( strcat(new_name, matrices) );
+    
+    dof = sum (sum( nodes(:, 1:3) == [0, 0, 0]) );
+    doc = (3*length(nodes) - dof);
+    MFF = full_matrices.M( 1:dof, 1:dof);
+    CFF = full_matrices.R( 1:dof, 1:dof);
+    KFF = full_matrices.K( 1:dof, 1:dof);
+    
+    MFC = full_matrices.M( 1:dof, dof+1:end);
+    CFC = full_matrices.R( 1:dof, dof+1:end);
+    KFC = full_matrices.K( 1:dof, dof+1:end);
+    
+    MCF = full_matrices.M( dof+1:end, 1:dof);
+    CCF = full_matrices.R( dof+1:end, 1:dof);
+    KCF = full_matrices.K( dof+1:end, 1:dof);
+    
+    MCC = full_matrices.M( dof+1:end, dof+1:end);
+    CCC = full_matrices.R( dof+1:end, dof+1:end);
+    KCC = full_matrices.K( dof+1:end, dof+1:end);
+    
+    mod8 = zeros(length(vett_f), 1);
+    fas8 = zeros(length(vett_f), 1);
+    mod9 = zeros(length(vett_f), 1);
+    fas9 = zeros(length(vett_f), 1);
+    
+    QF = zeros(dof,1);
+    QF( ya_idx ,1)=1;
+    
+    for k = 1:length(vett_f)
+        ome = vett_f(k)*2*pi;
+        A = (-ome^2*MFF+i*ome*CFF+KFF);
+        xf = A\QF;
+        QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
+        
+        R_yO2_val = QC( R_yO2_idx );
+        
+        mod8(k) = abs(R_yO2_val);
+        fas8(k) = angle(R_yO2_val);
+    end
+    
+    QF = zeros(dof,1);
+    QF( yc_idx ,1)=1;
+    
+    for k = 1:length(vett_f)
+        ome = vett_f(k)*2*pi;
+        A = (-ome^2*MFF+i*ome*CFF+KFF);
+        xf = A\QF;
+        QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
+        
+        R_yO2_val = QC( R_yO2_idx );
+        
+        mod9(k) = abs(R_yO2_val);
+        fas9(k) = angle(R_yO2_val);
+    end
+    
+    figure
+    subplot 211;plot(vett_f,[mod8, mod3]);grid;
+    xlabel('freq [Hz]');  title('Difference between FRF V_{O2} ( input Fy_A )'); legend('new', 'old');
+    subplot 212;plot(vett_f,[fas8, fas3]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+    figure
+    subplot 211;plot(vett_f,[mod9, mod4]);grid;
+    xlabel('freq [Hz]');title('Difference between FRF V_{O2} ( input Fy_C )');legend('new', 'old');
+    subplot 212;plot(vett_f,[fas9, fas4]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+    
+    if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
+        disp('Request fullfilled');
+    else
+        disp('Try again');
+    end
+    
+else
+    disp('Try again');
 end
 
-QF = zeros(dof,1);
-QF( yc_idx ,1)=1;
-% xc = zeros(doc,1);
-% xc(R_yO2_idx, 1) = 1;
-
-  for k = 1:length(vett_f)
-      ome = vett_f(k)*2*pi;
-      A = (-ome^2*MFF+i*ome*CFF+KFF);
-      % QFC = -(-ome^2*MFC+i*ome*CFC+KFC)*xc;
-      % xf=A\(QF+QFC);
-      % QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf + (-ome^2*MCC+i*ome*CCC+KCC)*xc ;
-      xf = A\QF;
-      QC = (-ome^2*MCF+i*ome*CCF+KCF)*xf ;
-      
-      R_yO2_val = QC( R_yO2_idx );
-            
-      mod9(k) = abs(R_yO2_val);
-      fas9(k) = angle(R_yO2_val);
- end
- 
- 
- figure
- subplot 211;plot(vett_f,[mod8, mod3]);grid;  
- xlabel('freq [Hz]');  title('Difference between FRF V_{O2} ( input Fy_A )'); legend('new', 'old');
- subplot 212;plot(vett_f,[fas8, fas3]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
- figure
- subplot 211;plot(vett_f,[mod9, mod4]);grid; 
- xlabel('freq [Hz]');title('Difference between FRF V_{O2} ( input Fy_C )');legend('new', 'old');
- subplot 212;plot(vett_f,[fas9, fas4]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
-
- if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
-     disp('Request fullfilled');
- else
-     disp('Try again');
- end
- 
  %% FUNCTIONS
  
  function [nodes, beams] = validate_FEM(nodes,  beams, limit)
@@ -510,7 +620,7 @@ QF( yc_idx ,1)=1;
            fprintf(fileID, '*MASSES\n');
      for idx = 1:size(masses, 1)
          fprintf(fileID, '%d \t', idx);
-         fprintf(fileID,'%d %d %d\n', masses );
+         fprintf(fileID,'%d %d %d\n', masses(idx, :) );
      end
            fprintf(fileID, '*ENDMASSES\n');
  end
