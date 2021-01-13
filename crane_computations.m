@@ -356,87 +356,106 @@ print( 'Spectrum of displacement yA', '-djpeg');
 
 %% QUESTION 6
 
-% nodes - boundary conditions codes: x,y,theta | position: x       y   
+yellow = [ %blue;
+%    88.8, 2.4e9, 2.1e6;             %cerchio pieno stessa massa 
+%    61.65, 1.64e9, 1e6;             % cerchio pieno
+%    39.46, 1e9, 4.2e5;              %cerchio pieno metà massa
+%    120.84, 3.24e9, 3.9e6;          %cerchio pieno troppa massa
+%    96.33, 2.56e9, 2.5e6;           %cerchio pieno massa limite 
+%    74.6, 2e9, 1.5e6;               %cerchio pieno  
+%->        52.18, 1.4e9, 1.4e5;
+52.18, 1.4e9, 1.4e5;
+%    45.6, 1.2e9, 5.6e5;
+%    47.74, 1.27e9, 6.2e5;
+%    54.48, 1.46e9, 8e5;
+%    56.82, 1.52e9, 8.8e5;
+        
+        %HEB
+%        50.5, 1.35e9, 1.1e7;
+       
+      %bocciati
+%     88.2, 2.4e9, 5.98e7;            %cerchio vuoto dim max spess max
+%     70.3, 1.9e9, 4.7e7;
+%     62.1, 1.7e9, 4.3e7;             %cerchio vuoto dim max spess min
+%     70.1, 1.87e9, 3.7e7;
+%     62.4, 1.66e9, 3.3e7;
+    
+   % 10.88, 2.9e8, 3.2e4
+    ];
+
+for j = 1: size(yellow, 1)
+
 nodes = [
         hinge_node, L3, 0; 
         free_node, L3, H3;
         free_node, L3, H2+H3;
         hinge_node, L1, 0;
-        free_node, L1, H3;                      %5
+        free_node, L1, H3;
         free_node, L1, H2+H3;
         free_node, L1+L2-L4, H2+H3;
+                                    %free_node, 1.75*L1, H2+H3;
         free_node, L1+L2, H2+H3;
         free_node, L1, H1+H2+H3;
-        free_node, 0, H2+H3;                    %10
-         free_node, L3, H1+H2+H3-5;               
-%         free_node, 0, H1+H2+H3;
-%         free_node, L1+L2-L4, H1+H2+H3;
-%         free_node, L1+L2, H1+H2+H3;
+        free_node, 0, H2+H3;
+%                                    free_node, L3, H3+H2+H1/2;
+%                                    free_node, 2*L1+5, H2+H3;
+%                                    free_node, 1.5*L1,H2+H3+H1/2 
         ];
 
-% beams - i-th node nr.  j-th node nr.      mass [kg/m]   EA [N]  EJ [Nm^2]
-% then I'll add two columns, length Lk [m] and frequency [wi]
 beams = [
-        1, 2, red;
-        2, 3, red;
+        1, 2, green;
+        2, 3, green;
         2, 5, green;
 %        3, 5, green;
-                  2, 6, green;
-        4, 5, red;
-        5, 6, red;
-%         10, 3, red;
-%         3, 6, red;
-%         6, 7, red;
-%         7, 8, red;
-                10, 3, blue;
-                3, 6, blue;
-                6, 7, blue;
-                7, 8, blue ;
-%         10, 9, blue;
- %        3, 9, blue;
- %                10, 9, red;
- %                3, 9, red;
-                  10,11, blue;
-                  3,11, red;
-                  11, 6, blue;
-  %                10, 2, blue;
-      %   6, 9, blue;
-                   6, 9, red;
-         7, 9, blue;
-         8, 9, blue;
-          9, 11, blue;
-%                 10, 12, blue;
-%                 12, 11, blue;
-%                 7, 13, blue;
-%         8, 14, blue;
-%         13, 14, blue;
-%         9, 13, blue;
-        ];
+                    2, 6, green;
+        4, 5, green;
+        5, 6, green;
+        10, 3, red;
+        3, 6, red;
+        6, 7, red;
+        7, 8, red;
+                    %7, 12, red;
+                    %12, 8, red;
 
-% alpha and beta values to define the damping matrix
+   %     10, 9, yellow(j, :);
+        3, 9, blue;
+                    %10, 11, blue;
+                    %11, 9, blue;
+                    %11, 9, green;
+                    %11, 3, blue;
+                    %11, 3, green;
+                    %11, 6, blue;
+                    %11, 6, green;
+        6, 9, green;
+%                     6, 9, green;
+         7, 9, blue;
+                    %7, 13, blue;
+                    %6, 13, blue;
+                    
+                  %  8, 9, yellow(j,:);
+                    %9, 12, blue;
+                    %9, 13, blue;
+                    %13, 12, blue;
+       ];
+
+% originale
 damping = [alpha, beta];
 
-% masses - node nr. where placed mass [kg]   J [Kgm^2]
-%masses = [ node_c, MC, JC];
-masses = [ 3, MC , JC;
-           %3, 0.045*old_tm, 0
-           ];
+%originale
+masses = [ node_c, MC, JC];
+%modified
+%  masses = [ 3, MC , JC;
+% %            %3, 0.045*old_tm, 0
+%             ];
 
 [nodes, beams] = validate_FEM(nodes, beams, Cs*OMEGA_val);
 
-beams = [beams;
-   %  10, 2, blue, 0,0;
-    %14, 17, blue, 0,0;
-   % 7, 25, blue, 0,0;
-    %19, 24, blue,0,0;
-%      20, 21, blue, 0,0;
-%      21, 22, blue, 0,0;
-%      22, 23, blue, 0,0;
-%      23, 26, blue, 0,0;
-    ];
+% beams = [beams;];
+% [nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
 
-% check conditions again on wi
-[nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
+
+
+
 % condition on the total mass
 new_tm = sum( beams( :, 3).*beams(:, end-1) )+MC;
 if( new_tm <= 1.05*old_tm )
@@ -507,25 +526,32 @@ if( new_tm <= 1.05*old_tm )
         fas9(k) = angle(R_yO2_val);
     end
     
-    figure
+    figure(idx)
     subplot 211;plot(vett_f,[mod8, mod3]);grid;
-    xlabel('freq [Hz]');  title('Difference between FRF V_{O2} ( input Fy_A )'); legend('new', 'old');
+    xlabel('freq [Hz]');  %title('Difference between FRF V_{O2} ( input Fy_A )'); 
+    title(num2str(j));
+    legend('new', 'old');
     subplot 212;plot(vett_f,[fas8, fas3]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
-    figure
-    subplot 211;plot(vett_f,[mod9, mod4]);grid;
-    xlabel('freq [Hz]');title('Difference between FRF V_{O2} ( input Fy_C )');legend('new', 'old');
-    subplot 212;plot(vett_f,[fas9, fas4]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
-    
+
     if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
         disp('Request fullfilled');
+        idx = idx+1;
+        figure(idx+1)
+        subplot 211;plot(vett_f,[mod9, mod4]);grid;
+        xlabel('freq [Hz]');title('Difference between FRF V_{O2} ( input Fy_C )');legend('new', 'old');
+        subplot 212;plot(vett_f,[fas9, fas4]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
+    
     else
         disp('Try again');
     end
-    
+    idx = idx+1;
 else
     disp('Try again');
 end
 
+
+
+end
  %% FUNCTIONS
  
  function [nodes, beams] = validate_FEM(nodes,  beams, limit)
