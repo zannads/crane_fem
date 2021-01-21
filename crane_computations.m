@@ -353,9 +353,10 @@ xlabel('frequency [Hz]'); ylabel('phase [rad]');
 % subplot 212;bar(vett_freq,fasf);grid; xlabel('frequency [Hz]'); ylabel('phase [rad]');
 print( 'Spectrum of displacement yA', '-djpeg');
 
-
+idx = 1;
 %% QUESTION 6
-
+close all;
+cd(folder);
 yellow = [ %blue;
 %    88.8, 2.4e9, 2.1e6;             %cerchio pieno stessa massa 
 %    61.65, 1.64e9, 1e6;             % cerchio pieno
@@ -393,6 +394,7 @@ nodes = [
         free_node, L1, H3;
         free_node, L1, H2+H3;
         free_node, L1+L2-L4, H2+H3;
+       % free_node, L1+L2/3, H2+H3;
                                     %free_node, 1.75*L1, H2+H3;
         free_node, L1+L2, H2+H3;
         free_node, L1, H1+H2+H3;
@@ -400,6 +402,7 @@ nodes = [
 %                                    free_node, L3, H3+H2+H1/2;
 %                                    free_node, 2*L1+5, H2+H3;
 %                                    free_node, 1.5*L1,H2+H3+H1/2 
+% free_node, L1, H2+H3+H1+10;
         ];
 
 beams = [
@@ -410,49 +413,56 @@ beams = [
                     2, 6, green;
         4, 5, green;
         5, 6, green;
-        10, 3, red;
+        10, 3, red;            
         3, 6, red;
         6, 7, red;
         7, 8, red;
                     %7, 12, red;
                     %12, 8, red;
 
-   %     10, 9, yellow(j, :);
+        10, 9, blue;
         3, 9, blue;
-                    %10, 11, blue;
-                    %11, 9, blue;
+%                     10, 11, blue;
+%                     11, 9, blue;
                     %11, 9, green;
-                    %11, 3, blue;
-                    %11, 3, green;
+%                     11, 3, blue;
+%                     11, 12, blue;
                     %11, 6, blue;
                     %11, 6, green;
-        6, 9, green;
+        6, 9, blue;
 %                     6, 9, green;
+       % 12, 13, blue;
+%         13, 14, blue;
          7, 9, blue;
-                    %7, 13, blue;
-                    %6, 13, blue;
-                    
-                  %  8, 9, yellow(j,:);
-                    %9, 12, blue;
-                    %9, 13, blue;
+%                     7, 13, blue;
+%                     13, 9, blue;
+        %    8, 9, blue;
+         9, 8, blue;
+%                     9, 14, blue;
+%                     14, 8, blue;
                     %13, 12, blue;
+                   % 11, 9, blue;
        ];
 
 % originale
 damping = [alpha, beta];
 
 %originale
-masses = [ node_c, MC, JC];
+%masses = [ node_c, MC, JC];
 %modified
-%  masses = [ 3, MC , JC;
-% %            %3, 0.045*old_tm, 0
-%             ];
+ masses = [ 3, MC , JC;
+%            %3, 0.045*old_tm, 0
+            ];
 
 [nodes, beams] = validate_FEM(nodes, beams, Cs*OMEGA_val);
-
-% beams = [beams;];
-% [nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
-
+% 
+beams = [beams;
+         14, 17, blue, 0, 0;
+         11, 15, blue,0,0;
+   %      18, 9, blue, 0,0
+    ];
+[nodes, beams] = validate_FEM(nodes, beams(:, 1:5), Cs*OMEGA_val);
+% 
 
 
 
@@ -536,7 +546,7 @@ if( new_tm <= 1.05*old_tm )
     if( ( max(mod8) - 0.5*target_1) <= 0 && ( max(mod9) - 0.5*target_2) <= 0 )
         disp('Request fullfilled');
         idx = idx+1;
-        figure(idx+1)
+        figure(idx)
         subplot 211;plot(vett_f,[mod9, mod4]);grid;
         xlabel('freq [Hz]');title('Difference between FRF V_{O2} ( input Fy_C )');legend('new', 'old');
         subplot 212;plot(vett_f,[fas9, fas4]*180/pi);grid; xlabel('freq [Hz]'); ylabel('degree [°]');
